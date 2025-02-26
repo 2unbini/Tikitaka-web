@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 interface Message {
@@ -10,10 +11,14 @@ interface Message {
 }
 
 export default function ChatBot() {
+  const searchParams = useSearchParams();
+  const petParam = searchParams.get("pet");
+  const pet = petParam ? JSON.parse(petParam) : null;
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      text: "안녕! 나는 김밥이야! 🐶 나한테 대해 알려줄래?",
+      text: `안녕, ${pet.name}이야! 이렇게 보니 또 반가워~`,
       sender: "bot",
     },
   ]);
