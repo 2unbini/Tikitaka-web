@@ -7,7 +7,9 @@ export default function Home() {
   const router = useRouter();
 
   const handleStart = () => {
-    router.push("/form");
+    setTimeout(() => {
+      router.push("/form");
+    }, 1000);
   };
 
   return (
