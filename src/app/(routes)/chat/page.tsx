@@ -13,9 +13,6 @@ interface Message {
   sender: "bot" | "user";
 }
 
-// TODO: - 응답 받는 동안에는 채팅 메시지 못보내게 하기
-
-// OpenAI 설정 추가
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true,
@@ -27,11 +24,16 @@ export default function ChatBot() {
   const petParam = searchParams.get("pet");
   const pet = petParam ? JSON.parse(petParam) : null;
   const sessionId = pet ? pet.session_id : null;
+  const ownerName = pet ? pet.owner_name : null;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const [showAdAlert, setShowAdAlert] = useState(false);
+  const [showAd, setShowAd] = useState(false);
+  const [hasWatchedAd, setHasWatchedAd] = useState(false);
 
   // 메시지가 추가될 때마다 스크롤 최하단으로 이동
   useEffect(() => {
@@ -44,7 +46,12 @@ export default function ChatBot() {
   // 채팅 기록 불러오기
   useEffect(() => {
     const loadChatHistory = async () => {
-      if (!sessionId || !pet) return;
+      if (!sessionId || !pet) {
+        // 에러 핸들링: 세션 ID 또는 반려동물 정보가 없는 경우 로딩 종료
+        // 세션 ID, 반려동물 정보를 삭제한 뒤 홈으로 리다이렉트
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const { data, error } = await supabase
@@ -66,17 +73,17 @@ export default function ChatBot() {
         if (formattedMessages.length === 0) {
           formattedMessages.push({
             id: 1,
-            text: `안녕, 나 ${pet.name}! 이렇게 보니 신기해 주인! 반가워!`,
+            text: `안녕, 나 ${pet.name}! 이렇게 보니 신기해 ${ownerName}! 반가워!`,
             sender: "bot",
           });
         }
 
         setMessages(formattedMessages);
+        setIsLoading(false);
 
         if (error) throw error;
       } catch (error) {
         console.error("채팅 기록을 불러오는데 실패했습니다:", error);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -86,6 +93,24 @@ export default function ChatBot() {
 
   const sendMessage = async () => {
     if (!input.trim() || !sessionId || !pet || isSending) return;
+
+    // 메시지 카운트 증가
+    const newMessageCount = messageCount + 1;
+    setMessageCount(newMessageCount);
+
+    // 10번째 메시지일 때 광고 알림
+    if (newMessageCount === 10) {
+      setShowAdAlert(true);
+      return;
+    }
+
+    // 11번째 메시지부터는 5번에 한 번씩 광고 표시
+    if (newMessageCount > 10 && (newMessageCount - 11) % 5 === 0) {
+      if (!hasWatchedAd) {
+        setShowAdAlert(true);
+        return;
+      }
+    }
 
     setIsSending(true);
     const userInput = input.trim();
@@ -136,8 +161,8 @@ export default function ChatBot() {
 										 존댓말을 할 필요는 없으며, 주인의 말투에 따라 비슷한 분위기로 대화해주세요.
 										 대화하는 동안 절대로 당신이 반려동물이라는 것을 잊지 마세요.
 										 전혀 상관 없는 이야기를 하면 당신이 반려동물이라는 것을 잊지 말고 모른다고 답변해주세요.
-										 지금부터 당신은 주인과 함께 대화를 할 것입니다.
-										 주인이 대화를 시작하면 반려동물의 특성을 살려 최소 1문장, 최대 4문장 이내로 대화해주세요.
+										 지금부터 당신은 주인과 함께 대화를 할 것입니다. 주인의 이름은 ${ownerName}입니다.
+										 ${ownerName}이 대화를 시작하면 반려동물의 특성을 살려 최소 1문장, 최대 4문장 이내로 대화해주세요.
 										 필요하다면 적절한 이모지를 포함해서 대화해주세요.`,
           },
           {
@@ -167,6 +192,8 @@ export default function ChatBot() {
       console.error("메시지 전송 실패:", error);
     } finally {
       setIsSending(false);
+      // 광고 시청 상태 초기화
+      setHasWatchedAd(false);
     }
   };
 
@@ -186,20 +213,35 @@ export default function ChatBot() {
 
       <div
         ref={messageContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col"
+        className="flex-1 overflow-y-auto p-4 space-y-6 flex flex-col"
       >
         {messages.map((msg) => (
           <motion.div
             key={msg.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-3 rounded-lg w-fit ${
-              msg.sender === "bot"
-                ? "bg-blue-200 mr-auto"
-                : "bg-green-200 ml-auto"
-            }`}
+            className="flex items-start gap-2"
           >
-            {msg.text}
+            {msg.sender === "bot" && (
+              <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-blue-300 flex items-center justify-center text-white text-sm">
+                {pet?.image ? (
+                  <img
+                    src={pet.image}
+                    alt="Pet profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  "🐾"
+                )}
+              </div>
+            )}
+            <div
+              className={`p-4 rounded-2xl max-w-[70%] ${
+                msg.sender === "bot" ? "bg-blue-200" : "bg-green-200 ml-auto"
+              }`}
+            >
+              {msg.text}
+            </div>
           </motion.div>
         ))}
       </div>
@@ -222,6 +264,68 @@ export default function ChatBot() {
           보내기
         </button>
       </div>
+
+      {/* 광고 알림: 이 부분 messageCount 로직 좀 수정 필요함.  */}
+      {showAdAlert && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">
+              {messageCount === 10
+                ? "반려동물과 더 많은 대화를 원하시나요?"
+                : "광고 시청 필요"}
+            </h2>
+            <p className="mb-4">
+              {messageCount === 10
+                ? "이제부터는 광고 시청 후 메시지를 보낼 수 있습니다!"
+                : "계속해서 대화하려면 광고를 시청해주세요!"}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowAdAlert(false);
+                  setInput("");
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  setShowAdAlert(false);
+                  setShowAd(true);
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                광고 보기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAd && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">광고</h2>
+            <div className="w-64 h-64 bg-gray-200 flex items-center justify-center mb-4">
+              광고 영역
+            </div>
+            <button
+              onClick={() => {
+                setShowAd(false);
+                setHasWatchedAd(true);
+                // 사용자가 입력했던 메시지 다시 전송
+                if (input.trim()) {
+                  sendMessage();
+                }
+              }}
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              광고 닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

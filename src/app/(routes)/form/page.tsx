@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
 
 interface Message {
@@ -16,6 +17,7 @@ interface Message {
 }
 
 interface Pet {
+  id?: string; // Supabase에서 생성되는 ID
   name: string;
   type: string;
   age: number;
@@ -27,6 +29,8 @@ interface Pet {
   dislike: string;
   image: string;
   description: string;
+  session_id: string; // 세션 ID
+  owner_name: string; // 주인 이름
 }
 
 enum InformationType {
@@ -123,6 +127,8 @@ function Chip({ label, selected, onClick }: ChipProps) {
 export default function InputField() {
   const router = useRouter();
   const sessionId = useSession();
+  const searchParams = useSearchParams();
+  const userName = searchParams.get("userName");
   const informationType = useRef<InformationType>(InformationType.name);
   const [pet, setPet] = useState<Pet>({
     name: "",
@@ -136,22 +142,11 @@ export default function InputField() {
     dislike: "",
     image: "",
     description: "",
+    session_id: sessionId || "",
+    owner_name: userName || "주인",
   });
   const messageIdRef = useRef(2);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "안녕 친구! 나는 티키타카야. 정보를 알려주면 반려동물과 대화할 수 있게 해줄게!",
-      sender: "bot",
-      delay: 0,
-    },
-    {
-      id: 2,
-      text: "먼저 너의 반려동물의 이름을 알려줄래?",
-      sender: "bot",
-      delay: 0.8,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selectedGender, setSelectedGender] = useState<string>("");
   const [selectedPersonalities, setSelectedPersonalities] = useState<string[]>(
@@ -159,27 +154,63 @@ export default function InputField() {
   );
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const messageContainerRef = useRef<HTMLDivElement>(null);
+  const [isCheckingData, setIsCheckingData] = useState(true);
 
   useEffect(() => {
-    // TODO: - 바로 넘어가지 말고 데이터가 있다는걸 알리고 넘기기
+    const setInitialMessage = () => {
+      setMessages([
+        {
+          id: 1,
+          text: `안녕 ${userName}! 나는 티키타카야. 정보를 알려주면 반려동물과 대화할 수 있게 해줄게!`,
+          sender: "bot",
+          delay: 0,
+        },
+        {
+          id: 2,
+          text: "먼저 너의 반려동물의 이름을 알려줄래?",
+          sender: "bot",
+          delay: 0.8,
+        },
+      ]);
+    };
+
     const checkExistingPet = async () => {
-      if (!sessionId) return;
+      setIsCheckingData(true);
 
-      const { data, error } = await supabase
-        .from("pets")
-        .select()
-        .eq("session_id", sessionId)
-        .single();
-
-      if (error) {
-        if (error.code !== "PGRST116") {
-          console.error("Error fetching pet:", error);
-        }
+      // 세션 ID가 없는 경우
+      if (!sessionId) {
+        setIsCheckingData(false);
         return;
       }
 
-      if (data) {
-        router.push(`/chat?pet=${encodeURIComponent(JSON.stringify(data))}`);
+      try {
+        const { data, error } = await supabase
+          .from("pets")
+          .select()
+          .eq("session_id", sessionId)
+          .single();
+
+        if (error) {
+          // 데이터가 없는 경우
+          if (error.code == "PGRST116") {
+            setInitialMessage();
+            setIsCheckingData(false);
+            return;
+          } else {
+            throw error;
+          }
+        }
+
+        if (data) {
+          // Add a small delay for better UX
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          router.push(`/chat?pet=${encodeURIComponent(JSON.stringify(data))}`);
+        }
+      } catch (error) {
+        console.error("Error checking existing pet:", error);
+      } finally {
+        setIsCheckingData(false);
       }
     };
 
@@ -215,16 +246,18 @@ export default function InputField() {
     }
   }, [messages]);
 
-  // 폼 완료 시 데이터 저장
   const savePetInfo = async () => {
     if (!sessionId) return;
 
+    const petData: Partial<Pet> = {
+      ...pet,
+      session_id: sessionId,
+      owner_name: userName || "주인",
+    };
+
     const { data, error } = await supabase
       .from("pets")
-      .insert({
-        ...pet,
-        session_id: sessionId,
-      })
+      .insert(petData)
       .select()
       .single();
 
@@ -239,6 +272,7 @@ export default function InputField() {
         informationType.current = InformationType.age;
         break;
       case InformationType.age:
+        // 개월수, 년수 등 문자열 형식으로 입력되는 경우 정수로 변환
         setPet((prev) => ({ ...prev, age: parseInt(input) || 0 }));
         informationType.current = InformationType.type;
         break;
@@ -295,6 +329,26 @@ export default function InputField() {
       case InformationType.checkInformation:
         // 이 케이스는 이제 비워둡니다
         break;
+    }
+  };
+
+  const handleComplete = async () => {
+    const completionMessage: Message = {
+      id: ++messageIdRef.current,
+      text: "정보 입력 완료! 이제 대화를 시작해보자.",
+      sender: "bot",
+    };
+    setMessages((prev) => [...prev, completionMessage]);
+
+    try {
+      const savedPet = await savePetInfo();
+      if (savedPet) {
+        router.push(
+          `/chat?pet=${encodeURIComponent(JSON.stringify(savedPet))}`
+        );
+      }
+    } catch (error) {
+      console.error("Error saving pet info:", error);
     }
   };
 
@@ -360,6 +414,71 @@ export default function InputField() {
     }, 1000);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // 5MB 이상의 파일 업로드 방지
+      if (file.size > 5 * 1024 * 1024) {
+        alert("파일 크기는 5MB 이하여야 합니다.");
+        return;
+      }
+
+      // 로딩 메시지 추가
+      const loadingMessage: Message = {
+        id: ++messageIdRef.current,
+        text: "사진을 업로드하고 있어 💓",
+        sender: "bot",
+      };
+      setMessages((prev) => [...prev, loadingMessage]);
+
+      // 고유한 파일명 생성
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+      const filePath = `pet_images/${fileName}`;
+
+      // Supabase Storage에 업로드
+      const { error } = await supabase.storage
+        .from("pets")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false, // 기존 파일 덮어쓰기 방지
+        });
+
+      if (error) throw error;
+
+      // 업로드된 이미지의 퍼블릭 URL 가져오기
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("pets").getPublicUrl(filePath);
+
+      // 상태 업데이트
+      setPet((prev) => ({ ...prev, image: publicUrl }));
+
+      // 기존 로딩 메시지 제거 후 성공 메시지 추가
+      setMessages((prev) => prev.filter((msg) => msg.id !== loadingMessage.id));
+      const successMessage: Message = {
+        id: ++messageIdRef.current,
+        text: "사진이 잘 등록됐어!",
+        sender: "user",
+        image: publicUrl,
+      };
+      setMessages((prev) => [...prev, successMessage]);
+    } catch (error) {
+      console.error("이미지 업로드 실패:", error);
+      const errorMessage: Message = {
+        id: ++messageIdRef.current,
+        text: "사진 업로드에 실패했어😞 다시 시도해줄래?",
+        sender: "bot",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      setPet((prev) => ({ ...prev, image: "" }));
+    }
+  };
+
   const renderInputField = () => {
     switch (informationType.current) {
       case InformationType.gender:
@@ -402,71 +521,7 @@ export default function InputField() {
               type="file"
               accept="image/*"
               capture="environment"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-
-                try {
-                  // 파일 크기 체크 (5MB)
-                  if (file.size > 5 * 1024 * 1024) {
-                    alert("파일 크기는 5MB 이하여야 합니다.");
-                    return;
-                  }
-
-                  // 로딩 메시지 표시
-                  const loadingMessage: Message = {
-                    id: ++messageIdRef.current,
-                    text: "사진을 업로드하고 있어 💓",
-                    sender: "bot",
-                  };
-                  setMessages((prev) => [...prev, loadingMessage]);
-
-                  // 파일명을 유니크하게 생성
-                  const fileExt = file.name.split(".").pop();
-                  const fileName = `${Math.random()
-                    .toString(36)
-                    .substring(2)}_${Date.now()}.${fileExt}`;
-                  const filePath = `pet_images/${fileName}`;
-
-                  // Supabase Storage에 업로드
-                  const { data, error } = await supabase.storage
-                    .from("pets")
-                    .upload(filePath, file, {
-                      cacheControl: "3600",
-                      upsert: false,
-                    });
-
-                  if (error) throw error;
-
-                  // 공개 URL 생성
-                  const {
-                    data: { publicUrl },
-                  } = supabase.storage.from("pets").getPublicUrl(filePath);
-
-                  // 상태 업데이트
-                  setPet((prev) => ({ ...prev, image: publicUrl }));
-
-                  // 성공 메시지 표시
-                  setMessages((prev) =>
-                    prev.filter((msg) => msg.id !== loadingMessage.id)
-                  );
-                  const successMessage: Message = {
-                    id: ++messageIdRef.current,
-                    text: "사진이 잘 등록됐어!",
-                    sender: "user",
-                  };
-                  setMessages((prev) => [...prev, successMessage]);
-                } catch (error) {
-                  console.error("이미지 업로드 실패:", error);
-                  const errorMessage: Message = {
-                    id: ++messageIdRef.current,
-                    text: "사진 업로드에 실패했어😞 다시 시도해줄래?",
-                    sender: "bot",
-                  };
-                  setMessages((prev) => [...prev, errorMessage]);
-                  setPet((prev) => ({ ...prev, image: "" }));
-                }
-              }}
+              onChange={handleImageUpload}
               className="hidden"
               id="imageInput"
             />
@@ -477,21 +532,38 @@ export default function InputField() {
               >
                 사진 선택하기
               </label>
-              <button
-                onClick={() => {
-                  informationType.current = InformationType.personality;
-                  const botReply: Message = {
-                    id: ++messageIdRef.current,
-                    text: MessageList[InformationType.personality],
-                    sender: "bot",
-                  };
-                  setMessages((prev) => [...prev, botReply]);
-                  setPet((prev) => ({ ...prev, image: "" }));
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                건너뛰기
-              </button>
+              {pet.image ? (
+                <button
+                  onClick={() => {
+                    informationType.current = InformationType.personality;
+                    const botReply: Message = {
+                      id: ++messageIdRef.current,
+                      text: MessageList[InformationType.personality],
+                      sender: "bot",
+                    };
+                    setMessages((prev) => [...prev, botReply]);
+                  }}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  저장하기
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    informationType.current = InformationType.personality;
+                    const botReply: Message = {
+                      id: ++messageIdRef.current,
+                      text: MessageList[InformationType.personality],
+                      sender: "bot",
+                    };
+                    setMessages((prev) => [...prev, botReply]);
+                    setPet((prev) => ({ ...prev, image: "" }));
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  건너뛰기
+                </button>
+              )}
             </div>
           </div>
         );
@@ -611,27 +683,7 @@ export default function InputField() {
                 setMessages((prev) => [...prev, botReply]);
               }}
             />
-            <Chip
-              label="완료하기"
-              selected={false}
-              onClick={() => {
-                const completionMessage: Message = {
-                  id: ++messageIdRef.current,
-                  text: "정보 입력 완료! 이제 대화를 시작해보자.",
-                  sender: "bot",
-                };
-                setMessages((prev) => [...prev, completionMessage]);
-                savePetInfo()
-                  .then(() => {
-                    router.push(
-                      `/chat?pet=${encodeURIComponent(JSON.stringify(pet))}`
-                    );
-                  })
-                  .catch((error) => {
-                    console.error("Error saving pet info:", error);
-                  });
-              }}
-            />
+            <Chip label="완료하기" selected={false} onClick={handleComplete} />
           </div>
         );
 
@@ -649,6 +701,19 @@ export default function InputField() {
     }
   };
 
+  if (isCheckingData) {
+    return (
+      <div className="h-screen flex flex-col bg-gray-100">
+        <header className="bg-blue-500 text-white p-4 text-center text-lg font-bold">
+          🐾 티키타카
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <header className="bg-blue-500 text-white p-4 text-center text-lg font-bold">
@@ -665,7 +730,7 @@ export default function InputField() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: msg.delay ?? 0 }}
-            className={`p-3 rounded-lg ${
+            className={`p-4 rounded-2xl max-w-[70%] ${
               msg.sender === "bot"
                 ? "bg-blue-200 mr-auto"
                 : "bg-green-200 ml-auto"

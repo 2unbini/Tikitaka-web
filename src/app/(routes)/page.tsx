@@ -2,14 +2,16 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Home() {
   const router = useRouter();
+  const [userName, setUserName] = useState("");
 
   const handleStart = () => {
-    setTimeout(() => {
-      router.push("/form");
-    }, 1000);
+    if (userName.trim()) {
+      router.push(`/form?userName=${encodeURIComponent(userName.trim())}`);
+    }
   };
 
   return (
@@ -37,6 +39,21 @@ export default function Home() {
         >
           서로를 이해하는 대화의 시작
         </motion.p>
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 1.1 }}
+          className="mb-6"
+        >
+          <input
+            type="text"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            placeholder="당신의 이름을 입력해주세요"
+            className="w-[50%] px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:border-blue-500 transition-colors placeholder:text-xs"
+            onKeyDown={(e) => e.key === "Enter" && handleStart()}
+          />
+        </motion.div>
         <motion.button
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -44,7 +61,8 @@ export default function Home() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleStart}
-          className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold shadow-lg hover:bg-blue-600 transition-colors"
+          disabled={!userName.trim()}
+          className="bg-blue-500 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed w-[30%]"
         >
           시작하기
         </motion.button>
