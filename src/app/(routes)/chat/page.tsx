@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import OpenAI from "openai";
+import html2canvas from "html2canvas";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 
 interface Message {
@@ -25,6 +27,7 @@ export default function ChatBot() {
   const pet = petParam ? JSON.parse(petParam) : null;
   const sessionId = pet ? pet.session_id : null;
   const ownerName = pet ? pet.owner_name : null;
+  const router = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -34,6 +37,7 @@ export default function ChatBot() {
   const [showAdAlert, setShowAdAlert] = useState(false);
   const [showAd, setShowAd] = useState(false);
   const [hasWatchedAd, setHasWatchedAd] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   // 메시지가 추가될 때마다 스크롤 최하단으로 이동
   useEffect(() => {
@@ -82,8 +86,9 @@ export default function ChatBot() {
         setIsLoading(false);
 
         if (error) throw error;
-      } catch (error) {
-        console.error("채팅 기록을 불러오는데 실패했습니다:", error);
+      } catch {
+        alert("채팅 기록을 불러오는데 실패했어요😢 메인 페이지로 이동합니다.");
+        router.push("/");
         setIsLoading(false);
       }
     };
@@ -188,14 +193,109 @@ export default function ChatBot() {
         content: botReply.text,
         sender: "bot",
       });
-    } catch (error) {
-      console.error("메시지 전송 실패:", error);
+    } catch {
+      alert("메시지 전송에 실패했어요😢 다시 시도해주세요.");
     } finally {
       setIsSending(false);
       // 광고 시청 상태 초기화
       setHasWatchedAd(false);
     }
   };
+
+  const handleBack = () => {
+    router.push("/");
+  };
+
+  const handleShare = async () => {
+    if (!messageContainerRef.current) return;
+
+    try {
+      const canvas = await html2canvas(messageContainerRef.current, {
+        backgroundColor: "#f3f4f6",
+        scale: 2, // 해상도 향상
+        useCORS: true, // 외부 이미지 허용
+        logging: false,
+        width: messageContainerRef.current.scrollWidth,
+        height: messageContainerRef.current.scrollHeight,
+        windowWidth: messageContainerRef.current.scrollWidth,
+        windowHeight: messageContainerRef.current.scrollHeight,
+      });
+
+      canvas.toBlob(
+        async (blob) => {
+          if (!blob) return;
+
+          try {
+            const imageUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = imageUrl;
+            link.download = `chat-with-${
+              pet?.name || "pet"
+            }-${new Date().getTime()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(imageUrl);
+
+            alert("대화 내용을 이미지로 저장했어요!");
+          } catch {
+            alert("이미지 저장에 실패했어요😢 다음에 다시 시도해주세요.");
+          }
+        },
+        "image/png",
+        1.0
+      ); // 품질 최대로 설정
+    } catch {
+      alert("대화 내용 캡처에 실패했어요😢 다음에 다시 시도해주세요.");
+    }
+  };
+
+  const handleCopyConversation = async () => {
+    const currentUrl = window.location.href;
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      alert("대화 링크가 복사되었습니다!");
+    } catch {
+      alert("링크 복사에 실패했어요😢 다시 시도해주세요.");
+    }
+    setShowShareMenu(false);
+  };
+
+  const handleCopyServiceUrl = async () => {
+    const rootUrl = window.location.origin;
+    try {
+      await navigator.clipboard.writeText(rootUrl);
+      alert("서비스 링크가 복사되었습니다!");
+    } catch {
+      alert("링크 복사에 실패했어요😢 다시 시도해주세요.");
+    }
+    setShowShareMenu(false);
+  };
+
+  const handleContact = () => {
+    const subject = encodeURIComponent("티키타카 문의하기🐾");
+    const body = encodeURIComponent(
+      "안녕하세요, 티키타카입니다.\n\n" +
+        "서비스 관련하여 궁금한 점이나 개선 사항을 아래에 자유롭게 적어주세요!\n\n" +
+        "---\n"
+    );
+    window.location.href = `mailto:where.all.belong@gmail.com?subject=${subject}&body=${body}`;
+    setShowShareMenu(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".relative")) {
+        setShowShareMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -207,8 +307,91 @@ export default function ChatBot() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      <header className="bg-blue-500 text-white p-4 text-center text-lg font-bold">
-        🐾 티키타카
+      <header className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center">
+          <button
+            onClick={handleBack}
+            className="text-blue-500 hover:text-blue-600 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="flex flex-col items-center">
+          <h1 className="font-semibold text-gray-800">
+            {pet?.name || "티키타카"}
+          </h1>
+          <span className="text-xs text-gray-500">반려동물과의 대화 🐾</span>
+        </div>
+        <div className="w-6 flex justify-end relative">
+          <button
+            onClick={() => setShowShareMenu(!showShareMenu)}
+            className="text-blue-500 hover:text-blue-600 transition-colors"
+            aria-label="공유 메뉴"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+              />
+            </svg>
+          </button>
+
+          {showShareMenu && (
+            <div className="absolute right-0 top-8 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+              <div className="py-1" role="menu" aria-orientation="vertical">
+                <button
+                  onClick={handleShare}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  role="menuitem"
+                >
+                  대화내용 이미지로 저장
+                </button>
+                <button
+                  onClick={handleCopyConversation}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  role="menuitem"
+                >
+                  대화내용 공유하기
+                </button>
+                <button
+                  onClick={handleCopyServiceUrl}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  role="menuitem"
+                >
+                  서비스 공유하기
+                </button>
+                <button
+                  onClick={handleContact}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  role="menuitem"
+                >
+                  문의하기
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
       <div
@@ -220,10 +403,15 @@ export default function ChatBot() {
             key={msg.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-2"
+            className="flex items-start gap-2 w-full"
+            style={{
+              margin: "8px 0",
+              breakInside: "avoid",
+              pageBreakInside: "avoid",
+            }}
           >
             {msg.sender === "bot" && (
-              <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-blue-300 flex items-center justify-center text-white text-sm">
+              <div className="w-12 h-12 p-1 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center text-white text-sm">
                 {pet?.image ? (
                   <img
                     src={pet.image}

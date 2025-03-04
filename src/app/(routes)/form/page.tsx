@@ -113,10 +113,10 @@ function Chip({ label, selected, onClick }: ChipProps) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1 rounded-full text-sm m-1 transition-colors ${
+      className={`px-4 py-2 rounded-2xl text-sm m-1 transition-colors ${
         selected
           ? "bg-blue-500 text-white"
-          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
       }`}
     >
       {label}
@@ -207,8 +207,9 @@ export default function InputField() {
 
           router.push(`/chat?pet=${encodeURIComponent(JSON.stringify(data))}`);
         }
-      } catch (error) {
-        console.error("Error checking existing pet:", error);
+      } catch {
+        alert("데이터를 불러오는데 실패했어요😢 메인 페이지로 이동합니다.");
+        router.push("/");
       } finally {
         setIsCheckingData(false);
       }
@@ -347,8 +348,9 @@ export default function InputField() {
           `/chat?pet=${encodeURIComponent(JSON.stringify(savedPet))}`
         );
       }
-    } catch (error) {
-      console.error("Error saving pet info:", error);
+    } catch {
+      alert("반려동물 정보 저장에 실패했어요😢 다시 시도해주세요.");
+      router.refresh();
     }
   };
 
@@ -514,7 +516,6 @@ export default function InputField() {
         );
 
       case InformationType.image:
-        console.log("image input");
         return (
           <div className="flex-1 flex flex-col gap-2">
             <input
@@ -694,7 +695,7 @@ export default function InputField() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="flex-1 p-2 border rounded-lg"
+            className="flex-1 p-2 border rounded-2xl disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder={PlaceholderList[informationType.current]}
           />
         );
@@ -704,8 +705,11 @@ export default function InputField() {
   if (isCheckingData) {
     return (
       <div className="h-screen flex flex-col bg-gray-100">
-        <header className="bg-blue-500 text-white p-4 text-center text-lg font-bold">
-          🐾 티키타카
+        <header className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex-1 text-center">
+            <h1 className="font-semibold text-gray-800">🐾 티키타카</h1>
+            <span className="text-xs text-gray-500">반려동물 정보 입력</span>
+          </div>
         </header>
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
@@ -716,13 +720,16 @@ export default function InputField() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      <header className="bg-blue-500 text-white p-4 text-center text-lg font-bold">
-        🐾 티키타카
+      <header className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex-1 text-center">
+          <h1 className="font-semibold text-gray-800">🐾 티키타카</h1>
+          <span className="text-xs text-gray-500">반려동물 정보 입력</span>
+        </div>
       </header>
 
       <div
         ref={messageContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col"
+        className="flex-1 overflow-y-auto p-4 space-y-6 flex flex-col"
       >
         {messages.map((msg) => (
           <motion.div
@@ -730,20 +737,27 @@ export default function InputField() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: msg.delay ?? 0 }}
-            className={`p-4 rounded-2xl max-w-[70%] ${
-              msg.sender === "bot"
-                ? "bg-blue-200 mr-auto"
-                : "bg-green-200 ml-auto"
-            }`}
+            className="flex items-start gap-2"
           >
-            {msg.image && (
-              <img
-                src={msg.image}
-                alt="업로드된 이미지"
-                className="w-32 h-32 object-cover rounded-lg mb-2"
-              />
+            {msg.sender === "bot" && (
+              <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-blue-300 flex items-center justify-center text-white text-sm">
+                🐾
+              </div>
             )}
-            <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+            <div
+              className={`p-4 rounded-2xl max-w-[70%] ${
+                msg.sender === "bot" ? "bg-blue-200" : "bg-green-200 ml-auto"
+              }`}
+            >
+              {msg.image && (
+                <img
+                  src={msg.image}
+                  alt="업로드된 이미지"
+                  className="w-32 h-32 object-cover rounded-lg mb-2"
+                />
+              )}
+              <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+            </div>
           </motion.div>
         ))}
       </div>
@@ -758,7 +772,7 @@ export default function InputField() {
             informationType.current !== InformationType.image && (
               <button
                 onClick={sendMessage}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex-shrink-0"
+                className="px-4 py-2 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition-colors flex-shrink-0"
               >
                 보내기
               </button>
