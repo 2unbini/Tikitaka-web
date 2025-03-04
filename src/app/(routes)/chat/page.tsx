@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import Alert from "@/app/components/Alert";
 import OpenAI from "openai";
 import html2canvas from "html2canvas";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+
+const MAX_MESSAGE_COUNT = 10;
 
 interface Message {
   id: number;
@@ -34,10 +37,8 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
-  const [showAdAlert, setShowAdAlert] = useState(false);
-  const [showAd, setShowAd] = useState(false);
-  const [hasWatchedAd, setHasWatchedAd] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
 
   // 메시지가 추가될 때마다 스크롤 최하단으로 이동
   useEffect(() => {
@@ -51,9 +52,9 @@ export default function ChatBot() {
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!sessionId || !pet) {
-        // 에러 핸들링: 세션 ID 또는 반려동물 정보가 없는 경우 로딩 종료
-        // 세션 ID, 반려동물 정보를 삭제한 뒤 홈으로 리다이렉트
         setIsLoading(false);
+        await supabase.from("pets").delete().eq("id", pet.id);
+        router.push("/");
         return;
       }
 
@@ -80,6 +81,13 @@ export default function ChatBot() {
             text: `안녕, 나 ${pet.name}! 이렇게 보니 신기해 ${ownerName}! 반가워!`,
             sender: "bot",
           });
+          setMessageCount(0); // 초기 메시지만 있는 경우 카운트 0으로 설정
+        } else {
+          // 사용자 메시지 개수만 카운트 (봇 응답은 제외)
+          const userMessageCount = formattedMessages.filter(
+            (msg) => msg.sender === "user"
+          ).length;
+          setMessageCount(userMessageCount);
         }
 
         setMessages(formattedMessages);
@@ -103,18 +111,10 @@ export default function ChatBot() {
     const newMessageCount = messageCount + 1;
     setMessageCount(newMessageCount);
 
-    // 10번째 메시지일 때 광고 알림
-    if (newMessageCount === 10) {
-      setShowAdAlert(true);
+    // 10번째 메시지일 때 채팅 종료
+    if (newMessageCount === MAX_MESSAGE_COUNT) {
+      setShowAlert(true);
       return;
-    }
-
-    // 11번째 메시지부터는 5번에 한 번씩 광고 표시
-    if (newMessageCount > 10 && (newMessageCount - 11) % 5 === 0) {
-      if (!hasWatchedAd) {
-        setShowAdAlert(true);
-        return;
-      }
     }
 
     setIsSending(true);
@@ -197,8 +197,6 @@ export default function ChatBot() {
       alert("메시지 전송에 실패했어요😢 다시 시도해주세요.");
     } finally {
       setIsSending(false);
-      // 광고 시청 상태 초기화
-      setHasWatchedAd(false);
     }
   };
 
@@ -433,87 +431,28 @@ export default function ChatBot() {
           </motion.div>
         ))}
       </div>
-
-      <div className="p-4 flex items-center bg-white border-t">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          className="flex-1 p-2 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-          placeholder={isSending ? "" : "메시지를 입력하세요..."}
-          disabled={isSending}
-        />
-        <button
-          onClick={sendMessage}
-          className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          disabled={isSending}
-        >
-          보내기
-        </button>
-      </div>
-
-      {/* 광고 알림: 이 부분 messageCount 로직 좀 수정 필요함.  */}
-      {showAdAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">
-              {messageCount === 10
-                ? "반려동물과 더 많은 대화를 원하시나요?"
-                : "광고 시청 필요"}
-            </h2>
-            <p className="mb-4">
-              {messageCount === 10
-                ? "이제부터는 광고 시청 후 메시지를 보낼 수 있습니다!"
-                : "계속해서 대화하려면 광고를 시청해주세요!"}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowAdAlert(false);
-                  setInput("");
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => {
-                  setShowAdAlert(false);
-                  setShowAd(true);
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                광고 보기
-              </button>
-            </div>
-          </div>
+      {messageCount < MAX_MESSAGE_COUNT && (
+        <div className="p-4 flex items-center bg-white border-t">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            className="flex-1 p-2 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+            placeholder={isSending ? "" : "메시지를 입력하세요..."}
+            disabled={isSending}
+          />
+          <button
+            onClick={sendMessage}
+            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            disabled={isSending}
+          >
+            보내기
+          </button>
         </div>
       )}
 
-      {showAd && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-xl font-bold mb-4">광고</h2>
-            <div className="w-64 h-64 bg-gray-200 flex items-center justify-center mb-4">
-              광고 영역
-            </div>
-            <button
-              onClick={() => {
-                setShowAd(false);
-                setHasWatchedAd(true);
-                // 사용자가 입력했던 메시지 다시 전송
-                if (input.trim()) {
-                  sendMessage();
-                }
-              }}
-              className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              광고 닫기
-            </button>
-          </div>
-        </div>
-      )}
+      <Alert isOpen={showAlert} onClose={() => setShowAlert(false)} />
     </div>
   );
 }
