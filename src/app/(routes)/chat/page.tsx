@@ -4,7 +4,6 @@ import { Suspense, useEffect, useRef, useState } from "react";
 
 import Alert from "@/app/components/Alert";
 import OpenAI from "openai";
-import html2canvas from "html2canvas";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -150,8 +149,8 @@ function ChatBotContent() {
 										 품종이 없는 경우, 동물 종을 생각해서 대화해주세요. 품종이 모른다, 모름, 모르겠다 등이라면 동물 종을 생각해서 대화해주세요.
 										 나이는 ${pet.age}살이고, 성별은 ${
               pet.gender
-            }입니다. 성별은 없을 수도 있으며, 반려동물의 특성상 중성화를 했을수도 있습니다.
-										 동물 종의 생애 주기에 따라 나이를 판단하여 유년기, 청년기, 중년기, 노년기로 나누어 그에 맞게 대화해주세요. 하지만 성격에 따라 나이의 보편적인 특성이 중화될 수 있으므로 성격과 나이를 같이 생각해서 대화해주세요.
+            }입니다. 나이가 0살인 경우, 1살 미만인 것입니다. 성별은 없을 수도 있으며, 반려동물의 특성상 중성화를 했을수도 있습니다.
+										 동물 종의 생애 주기에 따라 나이를 판단하여 유년기, 청년기, 중년기, 노년기로 나누어 그에 맞게 대화해주세요.
 										 동물의 성격은 ${pet.personality.join(", ")}입니다. 성격에 따라 대화해주세요.
 										 동물은 ${pet.friend.join(
                        ", "
@@ -202,50 +201,6 @@ function ChatBotContent() {
 
   const handleBack = () => {
     router.push("/");
-  };
-
-  const handleShare = async () => {
-    if (!messageContainerRef.current) return;
-
-    try {
-      const canvas = await html2canvas(messageContainerRef.current, {
-        backgroundColor: "#f3f4f6",
-        scale: 2, // 해상도 향상
-        useCORS: true, // 외부 이미지 허용
-        logging: false,
-        width: messageContainerRef.current.scrollWidth,
-        height: messageContainerRef.current.scrollHeight,
-        windowWidth: messageContainerRef.current.scrollWidth,
-        windowHeight: messageContainerRef.current.scrollHeight,
-      });
-
-      canvas.toBlob(
-        async (blob) => {
-          if (!blob) return;
-
-          try {
-            const imageUrl = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = imageUrl;
-            link.download = `chat-with-${
-              pet?.name || "pet"
-            }-${new Date().getTime()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(imageUrl);
-
-            alert("대화 내용을 이미지로 저장했어요!");
-          } catch {
-            alert("이미지 저장에 실패했어요😢 다음에 다시 시도해주세요.");
-          }
-        },
-        "image/png",
-        1.0
-      ); // 품질 최대로 설정
-    } catch {
-      alert("대화 내용 캡처에 실패했어요😢 다음에 다시 시도해주세요.");
-    }
   };
 
   const handleCopyConversation = async () => {
@@ -359,18 +314,11 @@ function ChatBotContent() {
             <div className="absolute right-0 top-8 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
               <div className="py-1" role="menu" aria-orientation="vertical">
                 <button
-                  onClick={handleShare}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  role="menuitem"
-                >
-                  대화내용 이미지로 저장
-                </button>
-                <button
                   onClick={handleCopyConversation}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   role="menuitem"
                 >
-                  대화내용 공유하기
+                  채팅방 공유하기
                 </button>
                 <button
                   onClick={handleCopyServiceUrl}
@@ -394,7 +342,7 @@ function ChatBotContent() {
 
       <div
         ref={messageContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-6 flex flex-col"
+        className="flex-1 overflow-y-auto p-4 space-y-6 flex flex-col text-gray-800"
       >
         {messages.map((msg) => (
           <motion.div
@@ -409,7 +357,7 @@ function ChatBotContent() {
             }}
           >
             {msg.sender === "bot" && (
-              <div className="w-12 h-12 p-1 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center text-white text-sm">
+              <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center text-white text-sm">
                 {pet?.image ? (
                   <img
                     src={pet.image}
@@ -422,8 +370,8 @@ function ChatBotContent() {
               </div>
             )}
             <div
-              className={`p-4 rounded-2xl max-w-[70%] ${
-                msg.sender === "bot" ? "bg-blue-200" : "bg-green-200 ml-auto"
+              className={`p-3 rounded-2xl max-w-[70%] text-sm ${
+                msg.sender === "bot" ? "bg-blue-200" : "bg-gray-200 ml-auto"
               }`}
             >
               {msg.text}
@@ -432,19 +380,19 @@ function ChatBotContent() {
         ))}
       </div>
       {messageCount < MAX_MESSAGE_COUNT && (
-        <div className="p-4 flex items-center bg-white border-t">
+        <div className="p-4 flex items-center gap-2 bg-white border-t">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="flex-1 p-2 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 h-10 px-3 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed placeholder:text-sm text-gray-800"
             placeholder={isSending ? "" : "메시지를 입력하세요..."}
             disabled={isSending}
           />
           <button
             onClick={sendMessage}
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="h-10 px-2 bg-blue-500 text-white rounded-lg text-sm whitespace-nowrap hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             disabled={isSending}
           >
             보내기

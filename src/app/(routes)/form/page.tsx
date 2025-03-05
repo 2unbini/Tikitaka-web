@@ -68,22 +68,19 @@ const MessageList: {
 };
 
 const PlaceholderList = {
-  [InformationType.name]: "이름 예시: 토토, 도리, 호떡이 등",
-  [InformationType.age]: "나이 예시: 1살, 8개월, 6년 등",
-  [InformationType.type]: "종 예시: 강아지, 고양이, 도마뱀 등",
-  [InformationType.breed]: "품종 예시: 포메라니안, 블루화이트, 믹스 등",
-  [InformationType.gender]: "성별 예시: 남자, 여자, 중성화, 없음",
-  [InformationType.image]:
-    "사진 예시: 토토의 사진, 도리의 사진, 호떡이의 사진 등",
+  [InformationType.name]: "예) 토토, 도리, 호떡이 등",
+  [InformationType.age]: "예) 1살, 8개월, 6년 등",
+  [InformationType.type]: "예) 강아지, 고양이, 도마뱀 등",
+  [InformationType.breed]: "예) 포메라니안, 블루화이트, 믹스 등",
+  [InformationType.gender]: "예) 남자, 여자, 중성화, 없음",
+  [InformationType.image]: "예) 토토의 사진, 도리의 사진, 호떡이의 사진 등",
   [InformationType.personality]:
-    "성격 예시: 활발한, 소심한, 애교많은, 독립적인, 사교적인, 겁많은, 용감한, 장난꾸러기, 차분한, 예민한",
-  [InformationType.friend]:
-    "친구 예시: 사람, 같은 동물, 다른 동물, 혼자가 좋아",
-  [InformationType.favorite]:
-    "좋아하는 것 예시: 수박 껍질, 터그 놀이, 주인 빼고 다 등",
-  [InformationType.dislike]: "싫어하는 것 예시: 사람 손길, 당근, 다른 동물 등",
+    "예) 활발한, 소심한, 애교많은, 독립적인, 사교적인, 겁많은, 용감한, 장난꾸러기, 차분한, 예민한",
+  [InformationType.friend]: "예) 사람, 같은 동물, 다른 동물, 혼자가 좋아",
+  [InformationType.favorite]: "예) 수박 껍질, 터그 놀이, 주인 빼고 다 등",
+  [InformationType.dislike]: "예) 사람 손길, 당근, 다른 동물 등",
   [InformationType.description]:
-    "추가 설명 예시: 무지개별로 떠났어요, 개냥이에요, 사람을 무서워해요.",
+    "예) 무지개별로 떠났어요, 개냥이에요, 사람을 무서워해요.",
   [InformationType.checkInformation]: "정보가 맞는지 확인해줘.",
 };
 
@@ -99,6 +96,9 @@ const PERSONALITY_OPTIONS = [
   "장난꾸러기",
   "차분한",
   "예민한",
+  "게으른",
+  "호기심 많은",
+  "까칠한",
 ];
 const FRIEND_OPTIONS = ["사람", "같은 동물", "다른 동물", "혼자가 좋아"];
 
@@ -112,7 +112,7 @@ function Chip({ label, selected, onClick }: ChipProps) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-2xl text-sm m-1 transition-colors ${
+      className={`px-4 py-2 rounded-2xl text-xs m-1 transition-colors ${
         selected
           ? "bg-blue-500 text-white"
           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -123,6 +123,11 @@ function Chip({ label, selected, onClick }: ChipProps) {
   );
 }
 
+// todo: 1. form 화면 input field 보내기 버튼이 오른쪽에 붙어 있음(v)
+// todo: 2. form 화면에서는 이미지가 없어도 될듯 함(v)
+// todo: 3. 사진 선택하기 누르면 사진 앨범에 들어가게 해야 됨(v)
+// todo: 4. 일렬로 있는 버튼선택(사람, 다른동물 등...) 할 때 보내기 버튼이 옆에서 일부만 보임
+// todo: 5. placeholder 크기 작게, 글씨 크기도 작게(v)
 function InputFieldContent() {
   const router = useRouter();
   const sessionId = useSession();
@@ -160,13 +165,13 @@ function InputFieldContent() {
       setMessages([
         {
           id: 1,
-          text: `안녕 ${userName}! 나는 티키타카야. 정보를 알려주면 반려동물과 대화할 수 있게 해줄게!`,
+          text: `안녕 ${userName}! 나는 벨롱이야. 정보를 알려주면 반려동물과 대화할 수 있게 해줄게!`,
           sender: "bot",
           delay: 0,
         },
         {
           id: 2,
-          text: "먼저 너의 반려동물의 이름을 알려줄래?",
+          text: "먼저 반려동물의 이름을 알려줄래?",
           sender: "bot",
           delay: 0.8,
         },
@@ -230,7 +235,7 @@ function InputFieldContent() {
           pet.favorite
         }<br />싫어하는 것: ${pet.dislike}<br />추가 설명: ${pet.description}`;
         const petInfoBotMessage: Message = {
-          id: messageIdRef.current + 2,
+          id: ++messageIdRef.current,
           text: petInfoMessage,
           sender: "bot",
         };
@@ -272,8 +277,11 @@ function InputFieldContent() {
         informationType.current = InformationType.age;
         break;
       case InformationType.age:
-        // 개월수, 년수 등 문자열 형식으로 입력되는 경우 정수로 변환
-        setPet((prev) => ({ ...prev, age: parseInt(input) || 0 }));
+        if (input.includes("개월")) {
+          setPet((prev) => ({ ...prev, age: 0 }));
+        } else {
+          setPet((prev) => ({ ...prev, age: parseInt(input) || 0 }));
+        }
         informationType.current = InformationType.type;
         break;
       case InformationType.type:
@@ -517,7 +525,6 @@ function InputFieldContent() {
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleImageUpload}
               className="hidden"
               id="imageInput"
@@ -609,7 +616,7 @@ function InputFieldContent() {
                     setMessages((prev) => [...prev, botReply]);
                   }, 500);
                 }}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex-shrink-0"
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
                 확인
               </button>
@@ -620,7 +627,7 @@ function InputFieldContent() {
       case InformationType.friend:
         return (
           <div className="flex-1 flex items-center">
-            <div className="flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
               {FRIEND_OPTIONS.map((option) => (
                 <Chip
                   key={option}
@@ -656,7 +663,7 @@ function InputFieldContent() {
                     setMessages((prev) => [...prev, botReply]);
                   }, 500);
                 }}
-                className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex-shrink-0"
+                className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
                 확인
               </button>
@@ -691,7 +698,7 @@ function InputFieldContent() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="flex-1 p-2 border rounded-2xl disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 p-2 border rounded-2xl text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder={PlaceholderList[informationType.current]}
           />
         );
@@ -725,7 +732,7 @@ function InputFieldContent() {
 
       <div
         ref={messageContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-6 flex flex-col"
+        className="flex-1 overflow-y-auto p-3 space-y-6 flex flex-col text-gray-800"
       >
         {messages.map((msg) => (
           <motion.div
@@ -736,13 +743,17 @@ function InputFieldContent() {
             className="flex items-start gap-2"
           >
             {msg.sender === "bot" && (
-              <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-blue-300 flex items-center justify-center text-white text-sm">
-                🐾
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-blue-300 flex items-center justify-center text-white text-sm mt-1">
+                <img
+                  src="/images/bellong.png"
+                  alt="Bellong Character"
+                  className="w-8 h-8"
+                />
               </div>
             )}
             <div
-              className={`p-4 rounded-2xl max-w-[70%] ${
-                msg.sender === "bot" ? "bg-blue-200" : "bg-green-200 ml-auto"
+              className={`p-3 rounded-2xl max-w-[70%] text-sm ${
+                msg.sender === "bot" ? "bg-blue-200" : "bg-gray-200 ml-auto"
               }`}
             >
               {msg.image && (
@@ -759,7 +770,7 @@ function InputFieldContent() {
       </div>
 
       <div className="p-4 bg-white border-t">
-        <div className="flex items-center gap-2 max-w-full">
+        <div className="flex items-center gap-2 max-w-full text-gray-800">
           {renderInputField()}
           {informationType.current !== InformationType.gender &&
             informationType.current !== InformationType.personality &&
@@ -768,7 +779,7 @@ function InputFieldContent() {
             informationType.current !== InformationType.image && (
               <button
                 onClick={sendMessage}
-                className="px-4 py-2 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition-colors flex-shrink-0"
+                className="px-4 py-2 bg-blue-500 text-white rounded-xl text-xs hover:bg-blue-600 transition-colors"
               >
                 보내기
               </button>
