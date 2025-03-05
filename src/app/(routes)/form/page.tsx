@@ -715,8 +715,8 @@ function InputFieldContent() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      <header className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10">
+    <div className="h-full flex flex-col bg-gray-100 prevent-overscroll">
+      <header className="flex-shrink-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex-1 text-center">
           <h1 className="font-semibold text-gray-800">🐾 티키타카</h1>
           <span className="text-xs text-gray-500">반려동물 정보 입력</span>

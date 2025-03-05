@@ -20,7 +20,7 @@ export default function Home() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 1.5, ease: "easeOut" }}
-      className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-b from-blue-50 to-white"
+      className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white prevent-overscroll p-4"
     >
       <main className="w-full max-w-md text-center px-6">
         <motion.div

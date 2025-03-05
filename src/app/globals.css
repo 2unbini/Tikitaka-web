@@ -14,7 +14,37 @@
   }
 }
 
+html,
+body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#__next {
+  height: 100%;
+}
+
+/* 스크롤이 필요한 컨테이너에 대한 스타일 */
+.scroll-container {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 모바일 사파리에서 rubber-band 효과 방지 */
+.prevent-overscroll {
+  overscroll-behavior: none;
 }
