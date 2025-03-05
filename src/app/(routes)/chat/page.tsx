@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import Alert from "@/app/components/Alert";
 import OpenAI from "openai";
@@ -23,7 +23,7 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-export default function ChatBot() {
+function ChatBotContent() {
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const petParam = searchParams.get("pet");
@@ -454,5 +454,19 @@ export default function ChatBot() {
 
       <Alert isOpen={showAlert} onClose={() => setShowAlert(false)} />
     </div>
+  );
+}
+
+export default function ChatBot() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      }
+    >
+      <ChatBotContent />
+    </Suspense>
   );
 }

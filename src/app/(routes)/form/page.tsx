@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
-import { useSearchParams } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
 
 interface Message {
@@ -124,7 +123,7 @@ function Chip({ label, selected, onClick }: ChipProps) {
   );
 }
 
-export default function InputField() {
+function InputFieldContent() {
   const router = useRouter();
   const sessionId = useSession();
   const searchParams = useSearchParams();
@@ -288,12 +287,10 @@ export default function InputField() {
       case InformationType.gender:
         setPet((prev) => ({ ...prev, gender: input }));
         informationType.current = InformationType.image;
-        console.log("currentType in case gender", informationType.current);
         break;
       case InformationType.image:
         setPet((prev) => ({ ...prev, image: input }));
         informationType.current = InformationType.personality;
-        console.log("currentType in case image", informationType.current);
         break;
       case InformationType.personality:
         setPet((prev) => ({
@@ -469,8 +466,7 @@ export default function InputField() {
         image: publicUrl,
       };
       setMessages((prev) => [...prev, successMessage]);
-    } catch (error) {
-      console.error("이미지 업로드 실패:", error);
+    } catch {
       const errorMessage: Message = {
         id: ++messageIdRef.current,
         text: "사진 업로드에 실패했어😞 다시 시도해줄래?",
@@ -780,5 +776,19 @@ export default function InputField() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InputField() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      }
+    >
+      <InputFieldContent />
+    </Suspense>
   );
 }

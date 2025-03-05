@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export function useSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const getOrCreateSession = async () => {
@@ -37,12 +39,12 @@ export function useSession() {
           if (id) {
             localStorage.setItem("session_id", id);
           } else {
-            console.error("세션 ID가 생성되지 않았습니다.");
+            throw new Error("세션 ID가 생성되지 않았습니다.");
           }
-        } catch (error) {
-          console.error("세션 생성 실패:", error);
-          // 에러 발생 시 임시 ID 제거
+        } catch {
           localStorage.removeItem("session_id");
+          alert("세션 생성에 실패했어요. 다시 시도해주세요.");
+          router.push("/");
           return;
         }
       }
