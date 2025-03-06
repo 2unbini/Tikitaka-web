@@ -1,11 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { usePet } from "@/hooks/usePet";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/hooks/useSession";
 import { useState } from "react";
 
 export default function Home() {
   const router = useRouter();
+  const sessionId = useSession();
+  const { pet } = usePet();
   const [userName, setUserName] = useState("");
 
   const handleStart = () => {
@@ -32,8 +36,8 @@ export default function Home() {
             ease: [0.25, 0.1, 0.25, 1],
           }}
           src="/images/bellong_tikitaka.png"
-          alt="Belong Tikitaka"
-          className="w-24 h-24 mx-auto mt-2 mb-2"
+          alt="Bellong Tikitaka Image"
+          className="w-24 h-24 mx-auto mb-2"
         />
         <motion.div
           initial={{ y: 30, opacity: 0 }}
@@ -43,7 +47,7 @@ export default function Home() {
             delay: 1.0,
             ease: [0.25, 0.1, 0.25, 1],
           }}
-          className="mb-10"
+          className="mb-8"
         >
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             티키타카
@@ -61,11 +65,13 @@ export default function Home() {
             delay: 2.2,
             ease: [0.25, 0.1, 0.25, 1],
           }}
-          className="mb-10 space-y-2 text-gray-500 text-sm"
+          className="mb-8 space-y-2 text-gray-500 text-sm"
         >
-          <p>반려동물과 더 깊은 교감을 나누고 싶으신가요?</p>
           <p>AI 기술로 반려동물의 마음을 이해하고</p>
           <p>특별한 대화를 시작해보세요 🐾</p>
+          <p className="text-xs text-gray-400/50 pt-2">
+            * 현재는 대화가 10번까지만 가능해요
+          </p>
         </motion.div>
 
         <motion.div
@@ -103,6 +109,22 @@ export default function Home() {
               >
                 {userName.trim() ? `시작하기` : "입력하고 시작하기"}
               </button>
+              {sessionId && pet && (
+                <motion.button
+                  onClick={() => router.push(`/chat`)}
+                  className="text-xs text-blue-500"
+                  animate={{
+                    scale: [1, 1.05, 1],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  대화 기록이 있어요!
+                </motion.button>
+              )}
             </div>
           </div>
         </motion.div>

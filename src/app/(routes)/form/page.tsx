@@ -3,34 +3,12 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { Message } from "@/types/message";
+import { Pet } from "@/types/pet";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import { usePet } from "@/hooks/usePet";
 import { useSession } from "@/hooks/useSession";
-
-interface Message {
-  id: number;
-  text: string;
-  sender: "bot" | "user";
-  delay?: number;
-  image?: string;
-}
-
-interface Pet {
-  id?: string; // Supabase에서 생성되는 ID
-  name: string;
-  type: string;
-  age: number;
-  gender: string;
-  breed: string;
-  personality: string[];
-  friend: string[];
-  favorite: string;
-  dislike: string;
-  image: string;
-  description: string;
-  session_id: string; // 세션 ID
-  owner_name: string; // 주인 이름
-}
 
 enum InformationType {
   name = "name",
@@ -50,21 +28,21 @@ enum InformationType {
 const MessageList: {
   [key in InformationType]: string;
 } = {
-  [InformationType.name]: "먼저 너의 반려동물의 이름을 알려줘",
+  [InformationType.name]: "대화하고 싶은 반려동물의 이름이 뭐야?",
   [InformationType.age]: "와! 이름이 너무 멋진걸? 몇 살이야?",
   [InformationType.type]: "그렇구나. 어떤 동물이야?",
   [InformationType.breed]: "종이 있다면 알려줘. 하나뿐인 믹스도 얼마든지!",
-  [InformationType.gender]: "성별은 어떻게 돼? 없다면 없음을 선택해줘.",
+  [InformationType.gender]: "성별은 어떻게 돼? 없다면 없음을 선택해 줘.",
   [InformationType.image]: "혹시 사진 있어? 없다면 넘어가도 좋아.",
-  [InformationType.personality]: "그럼 이제 성격에 대해 알려줄래?",
+  [InformationType.personality]: "그러면 이제 성격에 대해 알려줄래?",
   [InformationType.friend]: "사람을 좋아해? 아니면 다른 동물 친구들을 좋아해?",
   [InformationType.favorite]:
     "또 좋아하는 것이 있어? 예를 들어 좋아하는 음식이나 좋아하는 장난감 등등",
-  [InformationType.dislike]: "싫어하는건 어떤거야? 없다면 없다고 해도 좋아!",
+  [InformationType.dislike]: "싫어하는 건 어떤거 야? 없다면 없다고 해도 좋아!",
   [InformationType.description]:
-    "추가로 설명하고 싶은 것이 있어? 없으면 없다고 해도 돼.",
+    "추가로 설명하고 싶은 것이 있어? 추억이나 특별한 이야기 등등... 없으면 없다고 해도 돼.",
   [InformationType.checkInformation]:
-    "너의 반려동물에 대한 정보가 맞는지 확인해줘.",
+    "너의 반려동물에 대한 정보가 맞는지 확인해 줘.",
 };
 
 const PlaceholderList = {
@@ -123,18 +101,14 @@ function Chip({ label, selected, onClick }: ChipProps) {
   );
 }
 
-// todo: 1. form 화면 input field 보내기 버튼이 오른쪽에 붙어 있음(v)
-// todo: 2. form 화면에서는 이미지가 없어도 될듯 함(v)
-// todo: 3. 사진 선택하기 누르면 사진 앨범에 들어가게 해야 됨(v)
-// todo: 4. 일렬로 있는 버튼선택(사람, 다른동물 등...) 할 때 보내기 버튼이 옆에서 일부만 보임
-// todo: 5. placeholder 크기 작게, 글씨 크기도 작게(v)
 function InputFieldContent() {
   const router = useRouter();
+  const { pet, isLoading: isPetLoading, createPet } = usePet();
   const sessionId = useSession();
   const searchParams = useSearchParams();
   const userName = searchParams.get("userName");
   const informationType = useRef<InformationType>(InformationType.name);
-  const [pet, setPet] = useState<Pet>({
+  const [petData, setPetData] = useState<Pet>({
     name: "",
     type: "",
     age: 0,
@@ -158,82 +132,48 @@ function InputFieldContent() {
   );
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const messageContainerRef = useRef<HTMLDivElement>(null);
-  const [isCheckingData, setIsCheckingData] = useState(true);
 
+  // If pet is already created, redirect to chat page
   useEffect(() => {
     const setInitialMessage = () => {
       setMessages([
         {
           id: 1,
-          text: `안녕 ${userName}! 나는 벨롱이야. 정보를 알려주면 반려동물과 대화할 수 있게 해줄게!`,
+          text: `안녕 ${userName}! 나는 벨롱이야. 반려동물의 정보를 차근차근 알려줄래?`,
           sender: "bot",
           delay: 0,
         },
         {
           id: 2,
-          text: "먼저 반려동물의 이름을 알려줄래?",
+          text: "대화하고 싶은 반려동물의 이름이 뭐야?",
           sender: "bot",
           delay: 0.8,
         },
       ]);
     };
 
-    const checkExistingPet = async () => {
-      setIsCheckingData(true);
-
-      // 세션 ID가 없는 경우
-      if (!sessionId) {
-        setIsCheckingData(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("pets")
-          .select()
-          .eq("session_id", sessionId)
-          .single();
-
-        if (error) {
-          // 데이터가 없는 경우
-          if (error.code == "PGRST116") {
-            setInitialMessage();
-            setIsCheckingData(false);
-            return;
-          } else {
-            throw error;
-          }
-        }
-
-        if (data) {
-          // Add a small delay for better UX
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          router.push(`/chat?pet=${encodeURIComponent(JSON.stringify(data))}`);
-        }
-      } catch {
-        alert("데이터를 불러오는데 실패했어요😢 메인 페이지로 이동합니다.");
-        router.push("/");
-      } finally {
-        setIsCheckingData(false);
-      }
-    };
-
-    checkExistingPet();
-  }, [sessionId, router]);
+    if (pet) {
+      new Promise((resolve) => setTimeout(resolve, 1000));
+      router.push("/chat");
+    } else {
+      setInitialMessage();
+    }
+  }, [pet, router, userName]);
 
   useEffect(() => {
     if (informationType.current === InformationType.checkInformation) {
       setTimeout(() => {
-        const petInfoMessage = `이름: ${pet.name}<br />나이: ${
-          pet.age
-        }살<br />종류: ${pet.type}<br />품종: ${pet.breed}<br />성별: ${
-          pet.gender
-        }<br />성격: ${pet.personality.join(
+        const petInfoMessage = `이름: ${petData.name}<br />나이: ${
+          petData.age
+        }살<br />종류: ${petData.type}<br />품종: ${petData.breed}<br />성별: ${
+          petData.gender
+        }<br />성격: ${petData.personality.join(
           ", "
-        )}<br />좋아하는 친구: ${pet.friend.join(", ")}<br />좋아하는 것: ${
-          pet.favorite
-        }<br />싫어하는 것: ${pet.dislike}<br />추가 설명: ${pet.description}`;
+        )}<br />좋아하는 친구: ${petData.friend.join(", ")}<br />좋아하는 것: ${
+          petData.favorite
+        }<br />싫어하는 것: ${petData.dislike}<br />추가 설명: ${
+          petData.description
+        }`;
         const petInfoBotMessage: Message = {
           id: ++messageIdRef.current,
           text: petInfoMessage,
@@ -251,85 +191,72 @@ function InputFieldContent() {
     }
   }, [messages]);
 
-  const savePetInfo = async () => {
-    if (!sessionId) return;
-
-    const petData: Partial<Pet> = {
-      ...pet,
-      session_id: sessionId,
-      owner_name: userName || "주인",
-    };
-
-    const { data, error } = await supabase
-      .from("pets")
-      .insert(petData)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  };
+  useEffect(() => {
+    if (pet) {
+      router.push("/chat");
+    }
+  }, [pet, router]);
 
   const handleUserInput = (input: string) => {
     switch (informationType.current) {
       case InformationType.name:
-        setPet((prev) => ({ ...prev, name: input }));
+        setPetData((prev) => ({ ...prev, name: input }));
         informationType.current = InformationType.age;
         break;
       case InformationType.age:
         if (input.includes("개월")) {
-          setPet((prev) => ({ ...prev, age: 0 }));
+          setPetData((prev) => ({ ...prev, age: 0 }));
         } else {
-          setPet((prev) => ({ ...prev, age: parseInt(input) || 0 }));
+          setPetData((prev) => ({ ...prev, age: parseInt(input) || 0 }));
         }
         informationType.current = InformationType.type;
         break;
       case InformationType.type:
-        setPet((prev) => ({ ...prev, type: input }));
+        setPetData((prev) => ({ ...prev, type: input }));
         informationType.current = InformationType.breed;
         break;
       case InformationType.breed:
-        setPet((prev) => ({ ...prev, breed: input }));
+        setPetData((prev) => ({ ...prev, breed: input }));
         informationType.current = InformationType.gender;
         break;
       case InformationType.gender:
-        setPet((prev) => ({ ...prev, gender: input }));
+        setPetData((prev) => ({ ...prev, gender: input }));
         informationType.current = InformationType.image;
         break;
       case InformationType.image:
-        setPet((prev) => ({ ...prev, image: input }));
+        setPetData((prev) => ({ ...prev, image: input }));
         informationType.current = InformationType.personality;
         break;
       case InformationType.personality:
-        setPet((prev) => ({
+        setPetData((prev) => ({
           ...prev,
           personality: input.split(",").map((item) => item.trim()),
         }));
         informationType.current = InformationType.friend;
         break;
       case InformationType.friend:
-        setPet((prev) => ({
+        setPetData((prev) => ({
           ...prev,
           friend: input.split(",").map((item) => item.trim()),
         }));
         informationType.current = InformationType.favorite;
         break;
       case InformationType.favorite:
-        setPet((prev) => ({
+        setPetData((prev) => ({
           ...prev,
           favorite: input,
         }));
         informationType.current = InformationType.dislike;
         break;
       case InformationType.dislike:
-        setPet((prev) => ({
+        setPetData((prev) => ({
           ...prev,
           dislike: input,
         }));
         informationType.current = InformationType.description;
         break;
       case InformationType.description:
-        setPet((prev) => ({ ...prev, description: input }));
+        setPetData((prev) => ({ ...prev, description: input }));
         informationType.current = InformationType.checkInformation;
         break;
       case InformationType.checkInformation:
@@ -347,11 +274,16 @@ function InputFieldContent() {
     setMessages((prev) => [...prev, completionMessage]);
 
     try {
-      const savedPet = await savePetInfo();
-      if (savedPet) {
-        router.push(
-          `/chat?pet=${encodeURIComponent(JSON.stringify(savedPet))}`
-        );
+      if (sessionId) {
+        createPet({
+          ...petData,
+          session_id: sessionId,
+          owner_name: userName || "주인",
+        });
+        router.push("/chat");
+      } else {
+        alert("세션 ID가 없어요😭 다시 시도해주세요.");
+        router.refresh();
       }
     } catch {
       alert("반려동물 정보 저장에 실패했어요😢 다시 시도해주세요.");
@@ -387,12 +319,12 @@ function InputFieldContent() {
           setMessages([...messages, newUserFriendMessage]);
           break;
         case InformationType.image:
-          if (pet.image) {
+          if (petData.image) {
             const newUserImageMessage: Message = {
               id: ++messageIdRef.current,
               text: "사진이 등록됐어요!",
               sender: "user",
-              image: pet.image,
+              image: petData.image,
             };
             setMessages([...messages, newUserImageMessage]);
           }
@@ -463,7 +395,7 @@ function InputFieldContent() {
       } = supabase.storage.from("pets").getPublicUrl(filePath);
 
       // 상태 업데이트
-      setPet((prev) => ({ ...prev, image: publicUrl }));
+      setPetData((prev) => ({ ...prev, image: publicUrl }));
 
       // 기존 로딩 메시지 제거 후 성공 메시지 추가
       setMessages((prev) => prev.filter((msg) => msg.id !== loadingMessage.id));
@@ -481,7 +413,7 @@ function InputFieldContent() {
         sender: "bot",
       };
       setMessages((prev) => [...prev, errorMessage]);
-      setPet((prev) => ({ ...prev, image: "" }));
+      setPetData((prev) => ({ ...prev, image: "" }));
     }
   };
 
@@ -497,7 +429,7 @@ function InputFieldContent() {
                 selected={selectedGender === option}
                 onClick={() => {
                   setSelectedGender(option);
-                  setPet((prev) => ({ ...prev, gender: option }));
+                  setPetData((prev) => ({ ...prev, gender: option }));
                   const newUserMessage: Message = {
                     id: ++messageIdRef.current,
                     text: option,
@@ -536,7 +468,7 @@ function InputFieldContent() {
               >
                 사진 선택하기
               </label>
-              {pet.image ? (
+              {petData.image ? (
                 <button
                   onClick={() => {
                     informationType.current = InformationType.personality;
@@ -561,7 +493,7 @@ function InputFieldContent() {
                       sender: "bot",
                     };
                     setMessages((prev) => [...prev, botReply]);
-                    setPet((prev) => ({ ...prev, image: "" }));
+                    setPetData((prev) => ({ ...prev, image: "" }));
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
@@ -596,7 +528,7 @@ function InputFieldContent() {
             {selectedPersonalities.length > 0 && (
               <button
                 onClick={() => {
-                  setPet((prev) => ({
+                  setPetData((prev) => ({
                     ...prev,
                     personality: selectedPersonalities,
                   }));
@@ -646,7 +578,7 @@ function InputFieldContent() {
             {selectedFriends.length > 0 && (
               <button
                 onClick={() => {
-                  setPet((prev) => ({ ...prev, friend: selectedFriends }));
+                  setPetData((prev) => ({ ...prev, friend: selectedFriends }));
                   const newUserMessage: Message = {
                     id: ++messageIdRef.current,
                     text: selectedFriends.join(", "),
@@ -693,19 +625,27 @@ function InputFieldContent() {
 
       default:
         return (
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="flex-1 p-2 border rounded-2xl text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-            placeholder={PlaceholderList[informationType.current]}
-          />
+          <>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              className="flex-1 h-10 px-3 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed placeholder:text-sm text-gray-800"
+              placeholder={PlaceholderList[informationType.current]}
+            />
+            <button
+              onClick={sendMessage}
+              className="h-10 px-4 bg-blue-500 text-white rounded-lg text-sm whitespace-nowrap hover:bg-blue-600 transition-colors"
+            >
+              보내기
+            </button>
+          </>
         );
     }
   };
 
-  if (isCheckingData) {
+  if (isPetLoading) {
     return (
       <div className="h-screen flex flex-col bg-gray-100">
         <header className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-10">
@@ -772,18 +712,6 @@ function InputFieldContent() {
       <div className="p-4 bg-white border-t">
         <div className="flex items-center gap-2 max-w-full text-gray-800">
           {renderInputField()}
-          {informationType.current !== InformationType.gender &&
-            informationType.current !== InformationType.personality &&
-            informationType.current !== InformationType.friend &&
-            informationType.current !== InformationType.checkInformation &&
-            informationType.current !== InformationType.image && (
-              <button
-                onClick={sendMessage}
-                className="px-4 py-2 bg-blue-500 text-white rounded-xl text-xs hover:bg-blue-600 transition-colors"
-              >
-                보내기
-              </button>
-            )}
         </div>
       </div>
     </div>
