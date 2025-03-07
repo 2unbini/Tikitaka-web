@@ -4,8 +4,10 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import Alert from "@/app/components/Alert";
+import Feedback from "@/app/components/Feedback";
 import OpenAI from "openai";
 import { chatPrompt } from "@/constants/prompt";
+import { feedbackService } from "@/services/feedbackService";
 import { motion } from "framer-motion";
 import { useChat } from "@/hooks/useChat";
 import { usePet } from "@/hooks/usePet";
@@ -37,6 +39,7 @@ function ChatBotContent() {
   );
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   // 메시지가 추가될 때마다 스크롤 최하단으로 이동
   useEffect(() => {
@@ -121,8 +124,24 @@ function ChatBotContent() {
     }
   };
 
-  const handleBack = () => {
-    router.push("/");
+  const handleBack = async () => {
+    if (!isSharedChat) {
+      try {
+        const existingFeedback = await feedbackService.getFeedbackBySessionId(
+          sessionId || ""
+        );
+        if (existingFeedback) {
+          router.push("/");
+        } else {
+          setShowFeedback(true);
+        }
+      } catch {
+        // If there's an error checking feedback, show the feedback form anyway
+        setShowFeedback(true);
+      }
+    } else {
+      router.push("/");
+    }
   };
 
   const handleCopyConversation = async () => {
@@ -355,7 +374,31 @@ function ChatBotContent() {
         </div>
       )}
 
-      <Alert isOpen={showAlert} onClose={() => setShowAlert(false)} />
+      <Alert
+        isOpen={showAlert}
+        onClose={async () => {
+          setShowAlert(false);
+          try {
+            const existingFeedback =
+              await feedbackService.getFeedbackBySessionId(sessionId || "");
+            if (!existingFeedback) {
+              setShowFeedback(true);
+            } else {
+              router.push("/");
+            }
+          } catch {
+            setShowFeedback(true);
+          }
+        }}
+      />
+
+      <Feedback
+        isOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        sessionId={sessionId || ""}
+        petId={pet?.id || ""}
+        onSubmit={() => router.push("/")}
+      />
     </div>
   );
 }
