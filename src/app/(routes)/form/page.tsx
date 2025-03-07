@@ -38,7 +38,7 @@ const MessageList: {
   [InformationType.friend]: "사람을 좋아해? 아니면 다른 동물 친구들을 좋아해?",
   [InformationType.favorite]:
     "또 좋아하는 것이 있어? 예를 들어 좋아하는 음식이나 좋아하는 장난감 등등",
-  [InformationType.dislike]: "싫어하는 건 어떤거 야? 없다면 없다고 해도 좋아!",
+  [InformationType.dislike]: "싫어하는 건 어떤거야? 없다면 없다고 해도 좋아!",
   [InformationType.description]:
     "추가로 설명하고 싶은 것이 있어? 추억이나 특별한 이야기 등등... 없으면 없다고 해도 돼.",
   [InformationType.checkInformation]:
@@ -57,8 +57,7 @@ const PlaceholderList = {
   [InformationType.friend]: "예) 사람, 같은 동물, 다른 동물, 혼자가 좋아",
   [InformationType.favorite]: "예) 수박 껍질, 터그 놀이, 주인 빼고 다 등",
   [InformationType.dislike]: "예) 사람 손길, 당근, 다른 동물 등",
-  [InformationType.description]:
-    "예) 무지개별로 떠났어요, 개냥이에요, 사람을 무서워해요.",
+  [InformationType.description]: "예) 무지개별, 개냥이, 보호소 출신 등",
   [InformationType.checkInformation]: "정보가 맞는지 확인해줘.",
 };
 
