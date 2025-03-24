@@ -624,22 +624,27 @@ function InputFieldContent() {
 
       default:
         return (
-          <>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
+            className="flex items-center gap-2"
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               className="flex-1 h-10 px-3 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed placeholder:text-sm text-gray-800"
               placeholder={PlaceholderList[informationType.current]}
             />
             <button
-              onClick={sendMessage}
-              className="h-10 px-4 bg-blue-500 text-white rounded-lg text-sm whitespace-nowrap hover:bg-blue-600 transition-colors"
+              type="submit"
+              className="flex-shrink-0 h-10 px-4 bg-blue-500 text-white rounded-lg text-sm whitespace-nowrap hover:bg-blue-600 transition-colors"
             >
               보내기
             </button>
-          </>
+          </form>
         );
     }
   };
@@ -708,11 +713,7 @@ function InputFieldContent() {
         ))}
       </div>
 
-      <div className="p-4 bg-white border-t">
-        <div className="flex items-center gap-2 max-w-full text-gray-800">
-          {renderInputField()}
-        </div>
-      </div>
+      <div className="p-4 bg-white border-t">{renderInputField()}</div>
     </div>
   );
 }

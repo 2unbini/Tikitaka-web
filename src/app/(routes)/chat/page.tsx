@@ -348,29 +348,36 @@ function ChatBotContent() {
           ))}
       </div>
       {messageCount < MAX_MESSAGE_COUNT && (
-        <div className="p-4 flex items-center gap-2 bg-white border-t">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="flex-1 h-10 px-3 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed placeholder:text-sm text-gray-800"
-            placeholder={
-              isSharedChat
-                ? "공유된 대화방은 메시지를 보낼 수 없어요"
-                : isSending
-                ? "답변을 기다리고 있어요..."
-                : "메시지를 입력하세요..."
-            }
-            disabled={isSending || isSharedChat}
-          />
-          <button
-            onClick={sendMessage}
-            className="h-10 px-2 bg-blue-500 text-white rounded-lg text-sm whitespace-nowrap hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            disabled={isSending || isSharedChat}
+        <div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault(); // 새로고침 방지
+              sendMessage(); // 함수 실행
+            }}
+            className="p-4 flex items-center gap-2 bg-white border-t"
           >
-            보내기
-          </button>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="flex-1 h-10 px-3 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed placeholder:text-sm text-gray-800"
+              placeholder={
+                isSharedChat
+                  ? "공유된 대화방은 메시지를 보낼 수 없어요"
+                  : isSending
+                  ? "답변을 기다리고 있어요..."
+                  : "메시지를 입력하세요..."
+              }
+              disabled={isSending || isSharedChat}
+            />
+            <button
+              type="submit"
+              className="h-10 px-2 bg-blue-500 text-white rounded-lg text-sm whitespace-nowrap hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={isSending || isSharedChat}
+            >
+              보내기
+            </button>
+          </form>
         </div>
       )}
 
